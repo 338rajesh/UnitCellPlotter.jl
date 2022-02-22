@@ -574,7 +574,7 @@ class Plot2DShapes(Shape2D):
 # MODIFY TO ACCOMADATE MULTUPLE INCLUSION SHAPES
 
 
-def plot_uc(ruc_bbox,
+def plot_unit_cell(ruc_bbox,
                  inclusions_data,
                  image_path=None,
                  h5_path=None,
@@ -705,7 +705,7 @@ def plot_uc(ruc_bbox,
 
 if __name__ == "__main__":
     print("Testing CShape")
-    plot_uc(
+    plot_unit_cell(
         ruc_bbox=(-10.0, -10.0, 10.0, 10.0),
         inclusions_data={"CSHAPE": [
             [1.0, 1.0, 0.0 * pi, 6.0, 3.0, 0.5*pi, ]], },

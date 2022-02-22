@@ -29,7 +29,7 @@ function plot_unit_cell(
     z_comp_in_data::Bool = true
 )
     @pyinclude(joinpath(@__DIR__, "plot_2D_shapes.py"))
-    py"plot_udc_ruc"(
+    py"plot_unit_cell"(
         ruc_bbox, inclusions,
         image_path = image_path,
         matrix_color = matrix_color,
