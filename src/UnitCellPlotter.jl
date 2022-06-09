@@ -21,12 +21,13 @@ function plot_unit_cell(
     ruc_bbox::NTuple{4,Float64},
     inclusions::Dict{String,Matrix{Float64}};
     image_path::Union{String,Nothing} = nothing,
-    matrix_color::Union{String,Symbol} = :grey,
-    fibre_color::Union{String,Symbol} = :black,
+    matrix_color::Union{String,Symbol, Nothing} = :grey,
+    fibre_color::Union{String,Symbol, Nothing} = :black,
     matrix_edge_color::Union{String,Symbol,Nothing} = nothing,
     fibre_edge_color::Union{String,Symbol,Nothing} = nothing,
     fibre_edge_thickness::Union{Float64,Nothing} = nothing,
-    z_comp_in_data::Bool = true
+    z_comp_in_data::Bool = true,
+    pixels::NTuple{2, Float64}=(100.0, 100.0),
 )
     @pyinclude(joinpath(@__DIR__, "plot_2D_shapes.py"))
     py"plot_unit_cell"(
@@ -38,6 +39,7 @@ function plot_unit_cell(
         fibre_edge_color = fibre_edge_color,
         fibre_edge_thickness = fibre_edge_thickness,
         z_comp_in_data = z_comp_in_data,
+        pixels=pixels
     )
 
 end

@@ -25,6 +25,7 @@ def fine_tune_rve(rve_bounds):
 #                               Shape definitions
 # ==========================================================================
 
+
 class Shape2D:
     """
     It creates the standard 2D shapes and generated points sufficient for plotting shapes
@@ -302,8 +303,41 @@ class Shape2D:
                                            theta_2=2.0 * pi,
                                            ang_units="radians",
                                            direct_loop_closure=True)
-
     #
+
+    def make_lobe(self, num_lobes, ro, rl, sector_resolution=100,):
+        """
+        For nlobe shape with its centre at origin, for each lobe,
+            Sector 1: centre (ro - rl, 0.0), radius rl, angle 2(alpha + theta) in CCW direction
+            Sector 2: centre (b*cos(alpha), b*sin(alpha)), radius rl, angle 2(alpha + theta) in CCW direction
+        """
+        num_lobes = int(num_lobes)
+        alpha = pi/num_lobes
+        theta = arcsin(0.5 * (ro-rl)*sin(alpha)/rl)
+        b = 2.0 * rl * sin(alpha + theta) / sin(alpha)
+        #
+        sector1_theta = linspace(start=(- alpha - theta), stop=(alpha + theta), num=sector_resolution)
+        sector2_theta = linspace(start=(pi + alpha + theta), stop=(pi + alpha - theta), num=sector_resolution)
+        #
+        xy_1stlobe_sector1 = column_stack(
+            [(ro - rl) + (rl * cos(sector1_theta)), (rl * sin(sector1_theta))]
+        )
+        xy_1stlobe_sector2 = column_stack(
+            [b*cos(alpha) + (rl * cos(sector2_theta)), b*sin(alpha) + (rl * sin(sector2_theta))]
+        )
+        xy_1stlobe = concatenate((xy_1stlobe_sector1, xy_1stlobe_sector2,), axis=0)
+        #
+        x_y = array([]).reshape(0, 2)
+        for i in range(num_lobes):
+            theta_lobe = 2.0 * i * alpha
+            xx_yy = xy_1stlobe @ self._rot_mat(angle=theta_lobe)
+            x_y = concatenate((x_y, xx_yy), axis=0)
+        #
+        # returning rotated and translated reference-elliptical sector
+        self.xy = self._rot_trans_mat(x_y)
+        return self
+    #
+
     def make_star(self, num_tips, ro, rb, tip_fr, base_fr,
                   sector_resolution=100, ):
         """
@@ -374,6 +408,7 @@ class Shape2D:
 # ==========================================================================
 #                               Plotting
 # ==========================================================================
+
 
 class Plot2DShapes(Shape2D):
     """
@@ -541,6 +576,19 @@ class Plot2DShapes(Shape2D):
         return fig_handle
 
     @classmethod
+    def plot_nlobe_shapes(cls, fig_handle, xyt_ro_rl_n,
+                          ec='k',
+                          fc=None,
+                          et=1.0,
+                          ang_units: str = "radians"):
+        for (axc, ayc, ath, aro, arl, anl) in xyt_ro_rl_n:
+            patch = cls(centre=(axc, ayc), ref_angle=ath,
+                        angle_units=ang_units, ec=ec, fc=fc, et=et)
+            a_nlobe = patch.make_lobe(num_lobes=anl, ro=aro, rl=arl)
+            fig_handle = a_nlobe.plot(fig_handle=fig_handle)
+        return fig_handle
+
+    @classmethod
     def plot_cshapes(cls, fig_handle, xyt_ro_ri_alpha,
                      ec='k',
                      fc=None,
@@ -571,23 +619,20 @@ class Plot2DShapes(Shape2D):
 #                               Main Function
 # ==========================================================================
 
-# MODIFY TO ACCOMADATE MULTUPLE INCLUSION SHAPES
-
 
 def plot_unit_cell(ruc_bbox,
-                 inclusions_data,
-                 image_path=None,
-                 h5_path=None,
-                 matrix_color: str = 'grey',
-                 fibre_color: str = 'black',
-                 matrix_edge_color: str = None,
-                 fibre_edge_color: str = None,
-                 fibre_edge_thickness=None,
-                 angle_units: str = 'radians',
-                 z_comp_in_data: bool = False,
-                 pixels=(100, 100),
-                 my_dpi=96,
-                 ):
+                   inclusions_data,
+                   image_path=None,
+                   h5_path=None,
+                   matrix_color: str = 'grey',
+                   fibre_color: str = 'black',
+                   matrix_edge_color: str = None,
+                   fibre_edge_color: str = None,
+                   fibre_edge_thickness=None,
+                   angle_units: str = 'radians',
+                   z_comp_in_data: bool = False,
+                   pixels=(100, 100),
+                   ):
     """
     Plots RVE images of uni-directional composite.
 
@@ -612,9 +657,11 @@ def plot_unit_cell(ruc_bbox,
 
     """
 
-    plt.figure(0,
-               figsize=(pixels[0] / my_dpi, pixels[1] / my_dpi),
-               dpi=my_dpi, )
+    fig = plt.figure(0, frameon=False)
+    fig.set_size_inches(pixels[0], pixels[1])
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
     # plot RUC
     Plot2DShapes.plot_bbox(bounds=ruc_bbox,
                            fig_handle=plt.gca(),
@@ -656,7 +703,7 @@ def plot_unit_cell(ruc_bbox,
                                          fc=fibre_color,
                                          ang_units=angle_units,
                                          et=fibre_edge_thickness)
-        elif fibres_shape.upper() == "REG-POLYGON":
+        elif fibres_shape.upper() == "REGULARPOLYGON":
             if z_comp_in_data:
                 inc_data = inc_data[:, [0, 1, 3, 4, 5, 6]]
             Plot2DShapes.plot_regular_polygons(xyt_a_rf_n=inc_data,
@@ -665,7 +712,16 @@ def plot_unit_cell(ruc_bbox,
                                                fc=fibre_color,
                                                ang_units=angle_units,
                                                et=fibre_edge_thickness)
-        elif fibres_shape.upper().startswith("STAR"):
+        elif fibres_shape.upper() == "NLOBESHAPE":
+            if z_comp_in_data:
+                inc_data = inc_data[:, [0, 1, 3, 4, 5, 6]]
+            Plot2DShapes.plot_nlobe_shapes(xyt_ro_rl_n=inc_data,
+                                           fig_handle=plt.gca(),
+                                           ec=fibre_edge_color,
+                                           fc=fibre_color,
+                                           ang_units=angle_units,
+                                           et=fibre_edge_thickness)
+        elif fibres_shape.upper().startswith("NSTAR"):
             if z_comp_in_data:
                 inc_data = inc_data[:, [0, 1, 3, 4, 5, 6, 7, 8]]
             Plot2DShapes.plot_stars(xyt_ro_rb_rtf_rbf_n=inc_data,
@@ -688,14 +744,15 @@ def plot_unit_cell(ruc_bbox,
 
     # display or save
     if image_path is not None:
-        print("image_path :: ", image_path)
         image_path = str(image_path)
-        # assert type(image_path) == str
-        plt.savefig(image_path, bbox_inches='tight', pad_inches=0)
-        plt.close()
+        plt.xlim([ruc_bbox[0], ruc_bbox[2]])
+        plt.ylim([ruc_bbox[1], ruc_bbox[3]])
+        plt.savefig(image_path,  dpi=1) #, bbox_inches='tight')
+        plt.clf()
+        print("image is saved at :: ", image_path)
     else:
         plt.show()
-        plt.close()
+        plt.clf()
     # saving data to h5 file if needed
     if h5_path is not None:
         pass
@@ -709,8 +766,9 @@ if __name__ == "__main__":
         ruc_bbox=(-10.0, -10.0, 10.0, 10.0),
         inclusions_data={"CSHAPE": [
             [1.0, 1.0, 0.0 * pi, 6.0, 3.0, 0.5*pi, ]], },
-        image_path=os.path.join(os.path.expanduser("~"), "test_cshape.pdf"),
+        image_path=os.path.join(os.path.expanduser("~"), "test_cshape.png"),
         fibre_color="y",
         fibre_edge_thickness=0.1,
         fibre_edge_color="b",
+        pixels=(600, 600)
     )
