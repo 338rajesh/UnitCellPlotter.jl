@@ -16,8 +16,6 @@ julia> using Pkg
 julia> Pkg.add("https://github.com/338rajesh/FEPreProcessing.jl#main")
 ```
 
-> **Note**: for development version, replace `main` with `dev` in the above link.
-
 ### Instructions for setting up matplotlib and numpy environment
 
 ## Documentation
